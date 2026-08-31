@@ -41,14 +41,14 @@
 <div class="tarjeta">
   <h1>Automatización de formatos de vinculación</h1>
   <p class="subtitulo">Gestión del Talento Humano — Universidad Nacional de Colombia</p>
-  <div class="barra" id="barra"><div></div><div></div><div></div><div></div></div>
+  <div class="barra" id="barra"><div></div><div></div><div></div><div></div><div></div><div></div></div>
 
-  <div class="paso" id="paso-0">
+  <div class="paso" id="paso-procesos">
     <p style="font-size:0.9rem;color:#666;margin-top:0">¿Qué proceso vas a adelantar?</p>
     <div id="lista-procesos"><p style="color:#999;font-size:0.85rem">Cargando procesos...</p></div>
   </div>
 
-  <div class="paso" id="paso-1">
+  <div class="paso" id="paso-personal">
     <h3 style="margin:0 0 4px">Datos personales</h3>
     <label>Nombres y apellidos completos</label>
     <input id="nombre" placeholder="Ej. María Camila Restrepo Gómez">
@@ -66,10 +66,10 @@
       <div><label>Dirección de residencia</label><input id="direccion"></div>
       <div><label>Teléfono celular</label><input id="celular"></div>
     </div>
-    <div class="botones"><button class="secundario" onclick="irPaso(0)">Atrás</button><button onclick="irPaso(2)">Siguiente</button></div>
+    <div class="botones"><button class="secundario" onclick="irPaso('procesos')">Atrás</button><button onclick="irPaso('vinculacion')">Siguiente</button></div>
   </div>
 
-  <div class="paso" id="paso-2">
+  <div class="paso" id="paso-vinculacion">
     <h3 style="margin:0 0 4px">Vinculación y seguridad social</h3>
     <label>Modalidad del nombramiento</label>
     <select id="modalidad">
@@ -100,16 +100,30 @@
     </div>
     <label>Salario</label>
     <input id="salario" placeholder="$4.500.000">
-    <div class="botones"><button class="secundario" onclick="irPaso(1)">Atrás</button><button onclick="irPaso(3)">Siguiente</button></div>
+    <div class="botones"><button class="secundario" onclick="irPaso('personal')">Atrás</button><button onclick="irPaso('firma')">Siguiente</button></div>
   </div>
 
-  <div class="paso" id="paso-3">
+  <div class="paso" id="paso-firma">
+    <h3 style="margin:0 0 4px">Tu firma</h3>
+    <p style="font-size:0.85rem;color:#666;margin:0 0 0.8rem">Dibuja tu firma con el mouse o el dedo. Esta firma se incrustará en los documentos que lo requieran, junto con una constancia electrónica (fecha, hora e IP).</p>
+    <canvas id="lienzo-firma" width="560" height="160" style="border:1px solid var(--gris-borde);border-radius:6px;width:100%;touch-action:none;background:#fff"></canvas>
+    <div id="err-firma" style="display:none;color:var(--error);font-size:0.8rem;margin-top:4px">Por favor dibuja tu firma antes de continuar</div>
+    <div class="botones">
+      <button class="secundario" onclick="limpiarFirma()">Borrar y repetir</button>
+    </div>
+    <div class="botones">
+      <button class="secundario" onclick="irPaso('vinculacion')">Atrás</button>
+      <button onclick="validarFirmaYContinuar()">Siguiente</button>
+    </div>
+  </div>
+
+  <div class="paso" id="paso-revisar">
     <p style="font-size:0.9rem;color:#666;margin-top:0">Revisa antes de generar los documentos de este proceso.</p>
     <div class="resumen" id="resumen"></div>
-    <div class="botones"><button class="secundario" onclick="irPaso(2)">Atrás</button><button onclick="generar()">Generar documentos</button></div>
+    <div class="botones"><button class="secundario" onclick="irPaso('firma')">Atrás</button><button onclick="generar()">Generar documentos</button></div>
   </div>
 
-  <div class="paso" id="paso-4">
+  <div class="paso" id="paso-descarga">
     <div class="estado">
       <div class="ok" id="icono-estado">✓</div>
       <p id="mensaje-estado">Generando...</p>
@@ -131,15 +145,71 @@ async function cargarProcesos() {
     const div = document.createElement("div");
     div.className = "proceso-op";
     div.innerHTML = `<h3>${p.nombre}</h3><p>${p.descripcion}</p>`;
-    div.onclick = () => { procesoSeleccionado = codigo; irPaso(1); };
+    div.onclick = () => { procesoSeleccionado = codigo; irPaso('personal'); };
     cont.appendChild(div);
   });
 }
 
-function irPaso(n) {
-  document.querySelectorAll(".paso").forEach((el, i) => el.classList.toggle("activo", i === n));
-  document.querySelectorAll("#barra div").forEach((d, i) => d.classList.toggle("activo", i <= n));
-  if (n === 3) mostrarResumen();
+const ORDEN_PASOS = ["procesos", "personal", "vinculacion", "firma", "revisar", "descarga"];
+
+function irPaso(nombre) {
+  document.querySelectorAll(".paso").forEach((el) => {
+    el.classList.toggle("activo", el.id === "paso-" + nombre);
+  });
+  const idx = ORDEN_PASOS.indexOf(nombre);
+  document.querySelectorAll("#barra div").forEach((d, i) => d.classList.toggle("activo", i <= idx));
+  if (nombre === "revisar") mostrarResumen();
+  if (nombre === "firma") prepararLienzo();
+}
+
+// --- Lienzo de firma ---
+let dibujando = false;
+let firmaDatosUrl = null;
+
+function prepararLienzo() {
+  const canvas = document.getElementById("lienzo-firma");
+  const ctx = canvas.getContext("2d");
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#1a3a6b";
+
+  function posicion(e) {
+    const rect = canvas.getBoundingClientRect();
+    const escalaX = canvas.width / rect.width;
+    const escalaY = canvas.height / rect.height;
+    const punto = e.touches ? e.touches[0] : e;
+    return { x: (punto.clientX - rect.left) * escalaX, y: (punto.clientY - rect.top) * escalaY };
+  }
+  function iniciar(e) { dibujando = true; const p = posicion(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); }
+  function mover(e) { if (!dibujando) return; const p = posicion(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); }
+  function terminar() { dibujando = false; }
+
+  canvas.onmousedown = iniciar; canvas.onmousemove = mover;
+  canvas.onmouseup = terminar; canvas.onmouseleave = terminar;
+  canvas.ontouchstart = iniciar; canvas.ontouchmove = mover; canvas.ontouchend = terminar;
+}
+
+function limpiarFirma() {
+  const canvas = document.getElementById("lienzo-firma");
+  canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+  document.getElementById("err-firma").style.display = "none";
+}
+
+function lienzoEstaVacio(canvas) {
+  const ctx = canvas.getContext("2d");
+  const datos = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let i = 3; i < datos.length; i += 4) if (datos[i] !== 0) return false;
+  return true;
+}
+
+function validarFirmaYContinuar() {
+  const canvas = document.getElementById("lienzo-firma");
+  if (lienzoEstaVacio(canvas)) {
+    document.getElementById("err-firma").style.display = "block";
+    return;
+  }
+  firmaDatosUrl = canvas.toDataURL("image/png").split(",")[1]; // solo el base64, sin el prefijo
+  irPaso("revisar");
 }
 
 function valor(id) { return document.getElementById(id).value || "—"; }
@@ -213,6 +283,8 @@ function construirExpediente() {
     jefe_dependencia: valor("dependencia"),
     correo_dependencia: valor("correo"),
     numero_oficio: "—",
+
+    signature_image: firmaDatosUrl,
   };
 }
 
@@ -226,7 +298,7 @@ async function generarUno(codigo, expediente) {
 }
 
 async function generar() {
-  irPaso(4);
+  irPaso('descarga');
   const estado = document.getElementById("mensaje-estado");
   const descargas = document.getElementById("descargas");
   const icono = document.getElementById("icono-estado");
@@ -251,7 +323,7 @@ async function generar() {
 }
 
 cargarProcesos();
-irPaso(0);
+irPaso('procesos');
 </script>
 </body>
 </html>

@@ -4,11 +4,22 @@ const path = require("path");
 const fs = require("fs");
 const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
+const ImageModule = require("docxtemplater-image-module-free");
 
 const app = express();
+app.set("trust proxy", true); // necesario en Render para obtener la IP real del visitante
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "5mb" })); // la firma dibujada viaja como imagen base64
 app.use(express.static(path.join(__dirname, "public")));
+
+const imageOpts = {
+  centered: true,
+  getImage: (tagValue) => Buffer.from(tagValue, "base64"),
+  getSize: () => [160, 60],
+};
+
+// Formatos que llevan firma de la persona (tienen el marcador {%signature_image})
+const FORMATOS_CON_FIRMA = new Set(["078", "079", "080"]);
 
 const { CATALOGO, PROCESOS } = require("./procesos");
 
@@ -28,9 +39,37 @@ app.post("/api/generar/:codigo", (req, res) => {
     const rutaPlantilla = path.join(__dirname, "plantillas", formato.archivo);
     const content = fs.readFileSync(rutaPlantilla, "binary");
     const zip = new PizZip(content);
-    const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true });
 
-    doc.render(req.body || {});
+    const datos = { ...(req.body || {}) };
+
+    if (FORMATOS_CON_FIRMA.has(codigo)) {
+      // La fecha, hora e IP se calculan en el servidor (no se confía en lo que
+      // envíe el navegador) para que la constancia electrónica sea confiable.
+      const ahora = new Date();
+      const fechaHora = ahora.toLocaleString("es-CO", { timeZone: "America/Bogota" });
+      const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "desconocida")
+        .toString()
+        .split(",")[0]
+        .trim();
+
+      datos.constancia_firma =
+        `Firma electrónica registrada por ${datos.nombre_completo || "—"}, identificado(a) con ` +
+        `${datos.tipo_identificacion || "C.C."} ${datos.numero_identificacion || "—"}. ` +
+        `Firmado el ${fechaHora} (hora Colombia). IP de origen: ${ip}. Este documento fue firmado ` +
+        `electrónicamente de conformidad con la Ley 527 de 1999.`;
+
+      if (!datos.signature_image) {
+        return res.status(400).json({ error: "Este formato requiere una firma dibujada antes de generarse." });
+      }
+    }
+
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+      modules: FORMATOS_CON_FIRMA.has(codigo) ? [new ImageModule(imageOpts)] : [],
+    });
+
+    doc.render(datos);
 
     const buffer = doc.getZip().generate({ type: "nodebuffer" });
     res.setHeader(
