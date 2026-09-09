@@ -27,7 +27,32 @@ app.get("/api/procesos", (req, res) => {
   res.json(PROCESOS);
 });
 
-app.post("/api/generar/:codigo", (req, res) => {
+// Verifica el token de Cloudflare Turnstile contra la API oficial.
+// Si no hay una llave secreta configurada (aún no se ha dado de alta la
+// cuenta de Cloudflare), se omite la verificación para no romper las
+// pruebas locales, pero se deja advertido en el registro del servidor.
+async function verificarTurnstile(token, ip) {
+  const secreto = process.env.TURNSTILE_SECRET_KEY;
+  if (!secreto) {
+    console.warn("TURNSTILE_SECRET_KEY no configurada: verificación de captcha omitida.");
+    return true;
+  }
+  if (!token) return false;
+  try {
+    const resp = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ secret: secreto, response: token, remoteip: ip }),
+    });
+    const data = await resp.json();
+    return data.success === true;
+  } catch (err) {
+    console.error("Error verificando Turnstile:", err.message);
+    return false;
+  }
+}
+
+app.post("/api/generar/:codigo", async (req, res) => {
   const { codigo } = req.params;
   const formato = CATALOGO[codigo];
 
@@ -36,6 +61,12 @@ app.post("/api/generar/:codigo", (req, res) => {
   }
 
   try {
+    const ipSolicitante = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").toString().split(",")[0].trim();
+    const captchaOk = await verificarTurnstile(req.body?.turnstile_token, ipSolicitante);
+    if (!captchaOk) {
+      return res.status(403).json({ error: "No se pudo verificar que la solicitud proviene de una persona real. Recarga la página e inténtalo de nuevo." });
+    }
+
     const rutaPlantilla = path.join(__dirname, "plantillas", formato.archivo);
     const content = fs.readFileSync(rutaPlantilla, "binary");
     const zip = new PizZip(content);

@@ -62,7 +62,27 @@ visitas siguientes son instantáneas. Para una demo o un punto de control,
 esto es aceptable; para producción real con muchos usuarios, conviene
 evaluar un plan pago económico o alojamiento institucional.
 
-## Siguiente paso después de este punto de control
+## Cómo activar la verificación anti-bots (Cloudflare Turnstile)
+
+El formulario de Vinculación ya incluye el widget de Turnstile, pero está usando una
+llave de prueba genérica. Para activarlo con tu propia cuenta (gratuita):
+
+1. Crea una cuenta en https://dash.cloudflare.com (gratis, no requiere tener un
+   dominio propio administrado por Cloudflare).
+2. En el panel, ve a "Turnstile" y crea un nuevo "Site". Te dará dos llaves:
+   una pública (Site Key) y una secreta (Secret Key).
+3. Reemplaza `0x0000000000000000000000AA` en `public/vinculacion.html` (atributo
+   `data-sitekey`) por tu Site Key real.
+4. En Render, ve a tu servicio → "Environment" → agrega una variable:
+   `TURNSTILE_SECRET_KEY` = tu Secret Key.
+5. Vuelve a desplegar (Render lo hace automático al detectar el cambio en GitHub,
+   o puedes forzarlo con "Manual Deploy").
+
+Mientras no configures `TURNSTILE_SECRET_KEY`, el servidor sigue funcionando con
+normalidad (para no bloquear las pruebas), pero sin bloquear bots de verdad —
+se advierte en el registro del servidor.
+
+
 
 - Agregar más formatos al `CATALOGO` en `server.js` (siguiendo el mismo
   patrón: preparar la plantilla, guardarla en `/plantillas`, registrarla)
