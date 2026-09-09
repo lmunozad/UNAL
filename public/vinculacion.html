@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vinculación - Automatización de formatos UNAL</title>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<style>
+  :root {
+    --azul: #1a3a6b; --gris-texto: #444; --gris-borde: #d0d0d0;
+    --fondo: #f5f6f8; --error: #b3261e; --ok: #1e7d4a;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--fondo); color: var(--gris-texto); margin: 0; padding: 2rem 1rem; }
+  .tarjeta { max-width: 620px; margin: 0 auto; background: #fff; border-radius: 10px; padding: 2rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  h1 { font-size: 1.3rem; color: var(--azul); margin: 0 0 0.25rem; }
+  .subtitulo { font-size: 0.9rem; color: #777; margin: 0 0 1.5rem; }
+  .barra { display: flex; gap: 6px; margin-bottom: 1.5rem; }
+  .barra div { flex: 1; height: 5px; border-radius: 3px; background: var(--gris-borde); }
+  .barra div.activo { background: var(--azul); }
+  label { display: block; font-size: 0.85rem; color: #555; margin: 0.9rem 0 0.3rem; }
+  input, select { width: 100%; padding: 0.6rem 0.7rem; border: 1px solid var(--gris-borde); border-radius: 6px; font-size: 0.95rem; }
+  .fila { display: flex; gap: 10px; }
+  .fila > div { flex: 1; }
+  .botones { display: flex; justify-content: space-between; margin-top: 1.8rem; }
+  button { background: var(--azul); color: #fff; border: none; padding: 0.65rem 1.3rem; border-radius: 6px; font-size: 0.9rem; cursor: pointer; }
+  button.secundario { background: #fff; color: var(--azul); border: 1px solid var(--azul); }
+  button:hover { opacity: 0.92; }
+  .paso { display: none; }
+  .paso.activo { display: block; }
+  .proceso-op { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 1rem; margin-bottom: 0.8rem; cursor: pointer; }
+  .proceso-op:hover { border-color: var(--azul); }
+  .proceso-op h3 { margin: 0 0 4px; font-size: 1rem; color: var(--azul); }
+  .proceso-op p { margin: 0; font-size: 0.85rem; color: #777; }
+  .resumen { background: var(--fondo); border-radius: 8px; padding: 1rem; font-size: 0.9rem; line-height: 1.9; }
+  .estado { text-align: center; padding: 1.5rem 0; }
+  .ok { color: var(--ok); font-size: 2rem; }
+  .descarga { display: block; margin-top: 0.6rem; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div class="tarjeta">
+  <h1>Automatización de formatos de vinculación</h1>
+  <p class="subtitulo">Gestión del Talento Humano — Universidad Nacional de Colombia</p>
+  <div class="barra" id="barra"><div></div><div></div><div></div><div></div><div></div><div></div></div>
+
+  <div class="paso" id="paso-procesos">
+    <p style="font-size:0.9rem;color:#666;margin-top:0">¿Qué proceso vas a adelantar?</p>
+    <div id="lista-procesos"><p style="color:#999;font-size:0.85rem">Cargando procesos...</p></div>
+  </div>
+
+  <div class="paso" id="paso-personal">
+    <h3 style="margin:0 0 4px">Datos personales</h3>
+    <label>Nombres y apellidos completos</label>
+    <input id="nombre" placeholder="Ej. María Camila Restrepo Gómez">
+    <div class="fila">
+      <div><label>Tipo de identificación</label><select id="tipo_id"><option>C.C.</option><option>C.E.</option><option>Visa</option></select></div>
+      <div><label>Número</label><input id="numero_id" placeholder="52.784.910"></div>
+    </div>
+    <label>Ciudad de expedición</label>
+    <input id="ciudad_exp" placeholder="Bogotá D.C.">
+    <div class="fila">
+      <div><label>Fecha de nacimiento</label><input type="date" id="fecha_nac"></div>
+      <div><label>Correo electrónico</label><input id="correo" placeholder="nombre@unal.edu.co"></div>
+    </div>
+    <div class="fila">
+      <div><label>Dirección de residencia</label><input id="direccion"></div>
+      <div><label>Teléfono celular</label><input id="celular"></div>
+    </div>
+    <div class="botones"><button class="secundario" onclick="irPaso('procesos')">Atrás</button><button onclick="irPaso('vinculacion')">Siguiente</button></div>
+  </div>
+
+  <div class="paso" id="paso-vinculacion">
+    <h3 style="margin:0 0 4px">Vinculación y seguridad social</h3>
+    <label>Modalidad del nombramiento</label>
+    <select id="modalidad">
+      <option value="periodo_prueba">Periodo de prueba</option>
+      <option value="lnr">Libre nombramiento y remoción</option>
+      <option value="provisionalidad" selected>Provisionalidad</option>
+      <option value="encargo">Encargo</option>
+      <option value="supernumerario">Supernumerario</option>
+    </select>
+    <div class="fila">
+      <div><label>Cargo</label><input id="cargo" placeholder="Profesional Especializado"></div>
+      <div><label>Código-grado</label><input id="codigo_grado" placeholder="2028-14"></div>
+    </div>
+    <div class="fila">
+      <div><label>Dependencia</label><input id="dependencia" placeholder="Dirección de Personal"></div>
+      <div><label>Sede</label><input id="sede" placeholder="Bogotá"></div>
+    </div>
+    <div class="fila">
+      <div><label>Número de resolución</label><input id="numero_resolucion" placeholder="0456"></div>
+      <div><label>Fecha de la resolución</label><input type="date" id="fecha_resolucion"></div>
+    </div>
+    <label>Dependencia que expide la resolución</label>
+    <input id="dependencia_expide" placeholder="Vicerrectoría de Sede Bogotá">
+    <div class="fila">
+      <div><label>Entidad de pensión</label><input id="entidad_pension"></div>
+      <div><label>Entidad de salud</label><input id="entidad_salud"></div>
+      <div><label>Fondo de cesantías</label><input id="entidad_cesantias"></div>
+    </div>
+    <label>Salario</label>
+    <input id="salario" placeholder="$4.500.000">
+    <div class="botones"><button class="secundario" onclick="irPaso('personal')">Atrás</button><button onclick="irPaso('firma')">Siguiente</button></div>
+  </div>
+
+  <div class="paso" id="paso-firma">
+    <h3 style="margin:0 0 4px">Tu firma</h3>
+    <p style="font-size:0.85rem;color:#666;margin:0 0 0.8rem">Dibuja tu firma con el mouse o el dedo. Esta firma se incrustará en los documentos que lo requieran, junto con una constancia electrónica (fecha, hora e IP).</p>
+    <canvas id="lienzo-firma" width="560" height="160" style="border:1px solid var(--gris-borde);border-radius:6px;width:100%;touch-action:none;background:#fff"></canvas>
+    <div id="err-firma" style="display:none;color:var(--error);font-size:0.8rem;margin-top:4px">Por favor dibuja tu firma antes de continuar</div>
+    <div class="botones">
+      <button class="secundario" onclick="limpiarFirma()">Borrar y repetir</button>
+    </div>
+    <div class="botones">
+      <button class="secundario" onclick="irPaso('vinculacion')">Atrás</button>
+      <button onclick="validarFirmaYContinuar()">Siguiente</button>
+    </div>
+  </div>
+
+  <div class="paso" id="paso-revisar">
+    <p style="font-size:0.9rem;color:#666;margin-top:0">Revisa antes de generar los documentos de este proceso.</p>
+    <div class="resumen" id="resumen"></div>
+    <p style="font-size:0.78rem;color:#888;margin:1rem 0 0;line-height:1.5">
+      La Universidad Nacional de Colombia tratará los datos personales suministrados en este formulario de acuerdo con la
+      Ley 1581 de 2012 y su Política de Tratamiento de Datos Personales, con la única finalidad de adelantar el presente
+      trámite de vinculación.
+    </p>
+    <div style="margin-top:0.8rem">
+      <div class="cf-turnstile" data-sitekey="0x0000000000000000000000AA" data-callback="onTurnstileOk" data-error-callback="onTurnstileError"></div>
+      <div id="err-captcha" style="display:none;color:var(--error);font-size:0.8rem;margin-top:4px">Por favor completa la verificación anterior antes de continuar.</div>
+    </div>
+    <div class="botones"><button class="secundario" onclick="irPaso('firma')">Atrás</button><button onclick="generar()">Generar documentos</button></div>
+  </div>
+
+  <div class="paso" id="paso-descarga">
+    <div class="estado">
+      <div class="ok" id="icono-estado">✓</div>
+      <p id="mensaje-estado">Generando...</p>
+      <div id="descargas"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let procesos = {};
+let procesoSeleccionado = null;
+
+async function cargarProcesos() {
+  const resp = await fetch("/api/procesos");
+  procesos = await resp.json();
+  const cont = document.getElementById("lista-procesos");
+  cont.innerHTML = "";
+  Object.entries(procesos).forEach(([codigo, p]) => {
+    const div = document.createElement("div");
+    div.className = "proceso-op";
+    div.innerHTML = `<h3>${p.nombre}</h3><p>${p.descripcion}</p>`;
+    div.onclick = () => { procesoSeleccionado = codigo; irPaso('personal'); };
+    cont.appendChild(div);
+  });
+}
+
+const ORDEN_PASOS = ["procesos", "personal", "vinculacion", "firma", "revisar", "descarga"];
+
+function irPaso(nombre) {
+  document.querySelectorAll(".paso").forEach((el) => {
+    el.classList.toggle("activo", el.id === "paso-" + nombre);
+  });
+  const idx = ORDEN_PASOS.indexOf(nombre);
+  document.querySelectorAll("#barra div").forEach((d, i) => d.classList.toggle("activo", i <= idx));
+  if (nombre === "revisar") mostrarResumen();
+  if (nombre === "firma") prepararLienzo();
+}
+
+// --- Verificación anti-bots (Cloudflare Turnstile) ---
+let turnstileToken = null;
+function onTurnstileOk(token) {
+  turnstileToken = token;
+  document.getElementById("err-captcha").style.display = "none";
+}
+function onTurnstileError() {
+  turnstileToken = null;
+}
+let dibujando = false;
+let firmaDatosUrl = null;
+
+function prepararLienzo() {
+  const canvas = document.getElementById("lienzo-firma");
+  const ctx = canvas.getContext("2d");
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#1a3a6b";
+
+  function posicion(e) {
+    const rect = canvas.getBoundingClientRect();
+    const escalaX = canvas.width / rect.width;
+    const escalaY = canvas.height / rect.height;
+    const punto = e.touches ? e.touches[0] : e;
+    return { x: (punto.clientX - rect.left) * escalaX, y: (punto.clientY - rect.top) * escalaY };
+  }
+  function iniciar(e) { dibujando = true; const p = posicion(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); }
+  function mover(e) { if (!dibujando) return; const p = posicion(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); }
+  function terminar() { dibujando = false; }
+
+  canvas.onmousedown = iniciar; canvas.onmousemove = mover;
+  canvas.onmouseup = terminar; canvas.onmouseleave = terminar;
+  canvas.ontouchstart = iniciar; canvas.ontouchmove = mover; canvas.ontouchend = terminar;
+}
+
+function limpiarFirma() {
+  const canvas = document.getElementById("lienzo-firma");
+  canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+  document.getElementById("err-firma").style.display = "none";
+}
+
+function lienzoEstaVacio(canvas) {
+  const ctx = canvas.getContext("2d");
+  const datos = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let i = 3; i < datos.length; i += 4) if (datos[i] !== 0) return false;
+  return true;
+}
+
+function validarFirmaYContinuar() {
+  const canvas = document.getElementById("lienzo-firma");
+  if (lienzoEstaVacio(canvas)) {
+    document.getElementById("err-firma").style.display = "block";
+    return;
+  }
+  firmaDatosUrl = canvas.toDataURL("image/png").split(",")[1]; // solo el base64, sin el prefijo
+  irPaso("revisar");
+}
+
+function valor(id) { return document.getElementById(id).value || "—"; }
+
+function mostrarResumen() {
+  const p = procesos[procesoSeleccionado];
+  document.getElementById("resumen").innerHTML = `
+    <b>Proceso:</b> ${p.nombre}<br>
+    <b>Formatos a generar:</b> ${p.formatos.join(", ")}<br><br>
+    <b>Nombre:</b> ${valor("nombre")}<br>
+    <b>Identificación:</b> ${valor("tipo_id")} ${valor("numero_id")} de ${valor("ciudad_exp")}<br>
+    <b>Cargo:</b> ${valor("cargo")} — ${document.getElementById("modalidad").selectedOptions[0].text}<br>
+    <b>Dependencia / Sede:</b> ${valor("dependencia")} / ${valor("sede")}
+  `;
+}
+
+function formatearFecha(idInput) {
+  const v = document.getElementById(idInput).value;
+  if (!v) return { dia: "—", mes: "—", ano: "—", completa: "—" };
+  const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const [y, m, d] = v.split("-");
+  return { dia: String(parseInt(d,10)), mes: meses[parseInt(m,10)-1], ano: y, completa: `${parseInt(d,10)}/${m}/${y}` };
+}
+
+function construirExpediente() {
+  const hoy = new Date();
+  const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const fr = formatearFecha("fecha_resolucion");
+  const modalidad = document.getElementById("modalidad").value;
+  const marcas = { periodo_prueba:"", lnr:"", provisionalidad:"", encargo:"", supernumerario:"" };
+  marcas[modalidad] = "X";
+
+  return {
+    nombre_completo: valor("nombre"),
+    tipo_identificacion: valor("tipo_id"),
+    numero_identificacion: valor("numero_id"),
+    ciudad_expedicion: valor("ciudad_exp"),
+    correo_electronico: valor("correo"),
+    direccion_residencia: valor("direccion"),
+    telefono_celular: valor("celular"),
+    telefono: valor("celular"),
+    celular: valor("celular"),
+    fecha_nacimiento: document.getElementById("fecha_nac").value || "—",
+
+    x_periodo_prueba: marcas.periodo_prueba, x_lnr: marcas.lnr,
+    x_provisionalidad: marcas.provisionalidad, x_encargo: marcas.encargo,
+    x_supernumerario: marcas.supernumerario,
+
+    cargo: valor("cargo"),
+    codigo_grado: valor("codigo_grado"),
+    dependencia: valor("dependencia"),
+    sede: valor("sede"),
+    numero_resolucion: valor("numero_resolucion"),
+    dia_resolucion: fr.dia, mes_resolucion: fr.mes, ano_resolucion: fr.ano,
+    fecha_resolucion: fr.completa,
+    dependencia_expide_resolucion: valor("dependencia_expide"),
+
+    dia_firma: String(hoy.getDate()), mes_firma: meses[hoy.getMonth()], ano_firma: String(hoy.getFullYear()),
+    ciudad_firma: valor("ciudad_exp"),
+    ciudad_fecha: `${valor("ciudad_exp")}, ${hoy.toLocaleDateString("es-CO")}`,
+
+    ciudad_solicitud: valor("ciudad_exp"),
+    fecha_solicitud: hoy.toLocaleDateString("es-CO"),
+    entidad_origen_traslado: "N/A", entidad_destino: "N/A",
+    entidad_pension: valor("entidad_pension"),
+    entidad_salud: valor("entidad_salud"),
+    entidad_cesantias: valor("entidad_cesantias"),
+    salario: valor("salario"),
+
+    numero_proceso: procesoSeleccionado,
+    jefe_dependencia: valor("dependencia"),
+    correo_dependencia: valor("correo"),
+    numero_oficio: "—",
+
+    signature_image: firmaDatosUrl,
+  };
+}
+
+async function generarUno(codigo, expediente) {
+  const resp = await fetch(`/api/generar/${codigo}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(expediente),
+  });
+  if (!resp.ok) throw new Error(`Error generando el formato ${codigo}`);
+  const blob = await resp.blob();
+  return URL.createObjectURL(blob);
+}
+
+async function generar() {
+  if (!turnstileToken) {
+    document.getElementById("err-captcha").style.display = "block";
+    return;
+  }
+  irPaso('descarga');
+  const estado = document.getElementById("mensaje-estado");
+  const descargas = document.getElementById("descargas");
+  const icono = document.getElementById("icono-estado");
+  try {
+    const expediente = construirExpediente();
+    expediente.turnstile_token = turnstileToken;
+    const p = procesos[procesoSeleccionado];
+    estado.textContent = `Generando ${p.formatos.length} documento(s)...`;
+    const enlaces = [];
+    for (const codigo of p.formatos) {
+      const url = await generarUno(codigo, expediente);
+      enlaces.push({ codigo, url });
+    }
+    estado.textContent = "Tus documentos están listos:";
+    descargas.innerHTML = enlaces.map(e =>
+      `<a class="descarga" href="${e.url}" download="U_FT_08_007_${e.codigo}_generado.docx">Descargar formato ${e.codigo}</a>`
+    ).join("");
+  } catch (e) {
+    icono.textContent = "!"; icono.style.color = "#b3261e";
+    estado.textContent = "Ocurrió un problema generando los documentos. Intenta de nuevo.";
+    console.error(e);
+  }
+}
+
+cargarProcesos();
+irPaso('procesos');
+</script>
+</body>
+</html>

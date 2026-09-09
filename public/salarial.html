@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salarial - Automatización de formatos UNAL</title>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+  :root { --azul: #1a3a6b; --gris-texto: #444; --gris-borde: #d0d0d0; --fondo: #f5f6f8; --ok: #1e7d4a; --error: #b3261e; --text-muted:#6b7280; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--fondo); color: var(--gris-texto); margin: 0; padding: 2rem 1rem; }
+  .contenedor { max-width: 820px; margin: 0 auto; }
+  .volver { font-size: 0.85rem; color: var(--azul); text-decoration: none; }
+  h1 { font-size: 1.4rem; color: var(--azul); margin: 0.8rem 0 0.2rem; }
+  .subtitulo { font-size: 0.9rem; color: var(--text-muted); margin: 0 0 1.6rem; }
+  .tarjeta { background: #fff; border-radius: 10px; padding: 1.6rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 1.4rem; }
+  .tarjeta h2 { font-size: 1.1rem; color: var(--azul); margin: 0 0 0.3rem; }
+  .tarjeta .desc { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 1rem; }
+  label { display: block; font-size: 0.82rem; color: #555; margin: 0.7rem 0 0.25rem; }
+  input, select { width: 100%; padding: 0.55rem 0.65rem; border: 1px solid var(--gris-borde); border-radius: 6px; font-size: 0.92rem; }
+  .fila { display: flex; gap: 10px; }
+  .fila > div { flex: 1; }
+  button { background: var(--azul); color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; font-size: 0.88rem; cursor: pointer; margin-top: 1rem; }
+  button.secundario { background: #fff; color: var(--azul); border: 1px solid var(--azul); }
+  .resultado { margin-top: 1rem; padding: 0.9rem 1rem; border-radius: 8px; font-size: 0.88rem; line-height: 1.5; }
+  .resultado.ok { background: #eaf6ef; color: var(--ok); }
+  .resultado.no { background: #fbebe9; color: var(--error); }
+  table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.82rem; }
+  th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--gris-borde); }
+  th { color: var(--text-muted); font-weight: 600; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 0.75rem; }
+  .pill.ok { background: #eaf6ef; color: var(--ok); }
+  .pill.no { background: #fbebe9; color: var(--error); }
+  .proximamente { opacity: 0.6; }
+  .proximamente .badge { background: #eee; color: #888; font-size: 0.7rem; padding: 2px 10px; border-radius: 10px; }
+  .zona-csv { border: 1.5px dashed var(--gris-borde); border-radius: 8px; padding: 1.2rem; text-align: center; font-size: 0.85rem; color: var(--text-muted); }
+  .nota-datos { font-size: 0.75rem; color: #999; margin-top: 1rem; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="contenedor">
+  <a class="volver" href="index.html">&larr; Volver</a>
+  <h1>Salarial — Afiliaciones y traslados</h1>
+  <p class="subtitulo">Procedimiento U.PR.08.007.029 · Herramientas de apoyo para la División Nacional Salarial y Prestacional</p>
+
+  <div class="tarjeta">
+    <h2>Verificador de reglas de elegibilidad</h2>
+    <p class="desc">Antes de radicar una solicitud, valida si cumple las condiciones del procedimiento. Puedes verificar una persona o cargar un CSV con varias.</p>
+
+    <div class="fila">
+      <div>
+        <label>Tipo de trámite</label>
+        <select id="tipo_tramite">
+          <option value="traslado_eps">Traslado de EPS</option>
+          <option value="traslado_afp">Traslado de AFP</option>
+          <option value="traslado_fna">Traslado de FNA a fondo privado</option>
+          <option value="cambio_regimen_pensional">Cambio de régimen pensional</option>
+        </select>
+      </div>
+      <div>
+        <label>Situación administrativa actual</label>
+        <select id="situacion_actual">
+          <option value="ninguna">Ninguna (activo normal)</option>
+          <option value="licencia_no_remunerada">Licencia no remunerada</option>
+          <option value="vacaciones">Vacaciones</option>
+          <option value="incapacidad_medica">Incapacidad médica</option>
+          <option value="traslado_intersedes">Traslado inter sedes</option>
+          <option value="licencia_maternidad">Licencia de maternidad</option>
+          <option value="ausentismo_no_remunerado">Ausentismo no remunerado</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="fila">
+      <div><label>Fecha de ingreso a la Universidad</label><input type="date" id="fecha_ingreso"></div>
+      <div><label>Fecha de la solicitud</label><input type="date" id="fecha_solicitud"></div>
+    </div>
+    <div class="fila">
+      <div id="grupo_fna" style="display:none"><label>Fecha de afiliación actual al FNA</label><input type="date" id="fecha_afiliacion_actual"></div>
+      <div id="grupo_regimen" style="display:none"><label>Fecha en que cumple la edad de pensión</label><input type="date" id="fecha_cumple_edad_pension"></div>
+    </div>
+
+    <button onclick="verificarUno()">Verificar</button>
+    <div id="resultado-uno"></div>
+
+    <hr style="margin:1.6rem 0;border:none;border-top:1px solid var(--gris-borde)">
+
+    <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.6rem">O verifica varias personas a la vez con un archivo CSV (columnas: nombre, tipo_tramite, fecha_ingreso, fecha_solicitud, fecha_afiliacion_actual, fecha_cumple_edad_pension, situacion_actual):</p>
+    <div class="zona-csv">
+      <input type="file" id="archivo-csv" accept=".csv">
+      <div style="margin-top:0.4rem">Selecciona un archivo .csv exportado de SARA (o de prueba)</div>
+    </div>
+    <div id="resultado-csv"></div>
+
+    <p class="nota-datos">
+      Esta herramienta procesa datos personales de servidores públicos únicamente para fines de verificación interna del
+      trámite, de acuerdo con la Ley 1581 de 2012 y la Política de Tratamiento de Datos Personales de la Universidad
+      Nacional de Colombia. El archivo CSV se procesa en el navegador y no se almacena en ningún servidor.
+    </p>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Panel de vencimientos</h2>
+    <p class="desc">Carga los trámites en curso y la fecha del próximo cierre de nómina; el panel resalta qué casos están vencidos, urgentes o al día. <b>Las fechas de cierre son de ejemplo</b> — reemplázalas por el calendario real cuando lo tengas a mano.</p>
+
+    <label>Próximo cierre de nómina</label>
+    <input type="date" id="fecha_cierre_nomina">
+
+    <label style="margin-top:1rem">Archivo CSV de trámites en curso (columnas: nombre, tipo_tramite, fecha_limite)</label>
+    <div class="zona-csv">
+      <input type="file" id="archivo-vencimientos" accept=".csv">
+      <div style="margin-top:0.4rem">
+        <a href="#" onclick="descargarEjemploVencimientos();return false;" style="color:var(--azul)">Descargar CSV de ejemplo</a>
+      </div>
+    </div>
+    <div id="resultado-vencimientos"></div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Conciliación SARA vs. RUAF/ADRES</h2>
+    <p class="desc">Carga el export de SARA y el de RUAF/ADRES (ambos con columnas: cedula, nombre, entidad_eps, entidad_afp); la herramienta cruza por cédula y señala las diferencias, sin revisión manual fila por fila.</p>
+
+    <div class="fila">
+      <div>
+        <label>Export de SARA (.csv)</label>
+        <input type="file" id="archivo-sara" accept=".csv">
+        <a href="#" onclick="descargarEjemploSara();return false;" style="font-size:0.78rem;color:var(--azul)">Descargar CSV de ejemplo</a>
+      </div>
+      <div>
+        <label>Export de RUAF/ADRES (.csv)</label>
+        <input type="file" id="archivo-ruaf" accept=".csv">
+        <a href="#" onclick="descargarEjemploRuaf();return false;" style="font-size:0.78rem;color:var(--azul)">Descargar CSV de ejemplo</a>
+      </div>
+    </div>
+    <button onclick="conciliar()">Conciliar</button>
+    <div id="resultado-conciliacion"></div>
+  </div>
+</div>
+
+<script>
+function toggleCampos() {
+  const tipo = document.getElementById("tipo_tramite").value;
+  document.getElementById("grupo_fna").style.display = tipo === "traslado_fna" ? "block" : "none";
+  document.getElementById("grupo_regimen").style.display = tipo === "cambio_regimen_pensional" ? "block" : "none";
+}
+document.getElementById("tipo_tramite").addEventListener("change", toggleCampos);
+toggleCampos();
+
+function diffDias(a, b) { return Math.round((b - a) / 86400000); }
+function diffAnios(a, b) { return (b - a) / (365.25 * 86400000); }
+
+const SITUACIONES_BLOQUEO_EPS = ["licencia_no_remunerada", "vacaciones", "incapacidad_medica", "traslado_intersedes", "licencia_maternidad", "ausentismo_no_remunerado"];
+
+// Motor de reglas, basado en las condiciones generales del procedimiento U.PR.08.007.029
+function evaluarTramite(d) {
+  const motivos = [];
+  let cumple = true;
+  const fechaSolicitud = d.fecha_solicitud ? new Date(d.fecha_solicitud) : null;
+
+  if (!fechaSolicitud) {
+    return { cumple: false, motivos: ["Falta la fecha de solicitud, no se puede evaluar."] };
+  }
+
+  if (d.tipo_tramite === "traslado_eps" && SITUACIONES_BLOQUEO_EPS.includes(d.situacion_actual)) {
+    cumple = false;
+    motivos.push("No procede: el servidor se encuentra en una situación administrativa que impide el traslado de EPS este mes (condición general 16).");
+  }
+
+  if (d.tipo_tramite === "traslado_eps" || d.tipo_tramite === "traslado_afp") {
+    if (!d.fecha_ingreso) { cumple = false; motivos.push("Falta la fecha de ingreso para validar el plazo mínimo de 30 días."); }
+    else {
+      const dias = diffDias(new Date(d.fecha_ingreso), fechaSolicitud);
+      if (dias < 30) { cumple = false; motivos.push(`Solo han pasado ${dias} día(s) desde el ingreso; se requieren mínimo 30 (condición general 14).`); }
+    }
+  }
+
+  if (d.tipo_tramite === "traslado_fna") {
+    if (!d.fecha_afiliacion_actual) { cumple = false; motivos.push("Falta la fecha de afiliación actual al FNA."); }
+    else {
+      const anios = diffAnios(new Date(d.fecha_afiliacion_actual), fechaSolicitud);
+      if (anios < 3) { cumple = false; motivos.push(`Solo han pasado ${anios.toFixed(1)} año(s) desde la afiliación al FNA; se requieren mínimo 3 (condición general 18).`); }
+    }
+  }
+
+  if (d.tipo_tramite === "cambio_regimen_pensional") {
+    if (!d.fecha_cumple_edad_pension) { cumple = false; motivos.push("Falta la fecha en que cumple la edad de pensión."); }
+    else {
+      const faltan = diffAnios(fechaSolicitud, new Date(d.fecha_cumple_edad_pension));
+      if (faltan < 10) { cumple = false; motivos.push(`Faltan ${faltan.toFixed(1)} año(s) para la edad de pensión; se requieren mínimo 10 (condición general 15), además de la doble asesoría.`); }
+    }
+  }
+
+  if (cumple) motivos.push("Cumple las condiciones verificables del procedimiento U.PR.08.007.029.");
+  return { cumple, motivos };
+}
+
+function verificarUno() {
+  const d = {
+    tipo_tramite: document.getElementById("tipo_tramite").value,
+    situacion_actual: document.getElementById("situacion_actual").value,
+    fecha_ingreso: document.getElementById("fecha_ingreso").value,
+    fecha_solicitud: document.getElementById("fecha_solicitud").value,
+    fecha_afiliacion_actual: document.getElementById("fecha_afiliacion_actual").value,
+    fecha_cumple_edad_pension: document.getElementById("fecha_cumple_edad_pension").value,
+  };
+  const r = evaluarTramite(d);
+  const cont = document.getElementById("resultado-uno");
+  cont.innerHTML = `<div class="resultado ${r.cumple ? "ok" : "no"}"><b>${r.cumple ? "Cumple" : "No cumple"}</b><br>${r.motivos.join("<br>")}</div>`;
+}
+
+// --- Panel de vencimientos ---
+function descargarCsv(nombreArchivo, contenido) {
+  const blob = new Blob([contenido], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = nombreArchivo; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function descargarEjemploVencimientos() {
+  descargarCsv("ejemplo_vencimientos.csv",
+    "nombre,tipo_tramite,fecha_limite\n" +
+    "Ana Torres,Afiliación ARL,2026-08-25\n" +
+    "Carlos Ruiz,Traslado EPS,2026-09-05\n" +
+    "Marta Gómez,Registro SARA,2026-08-18\n" +
+    "Pedro León,Radicación novedad,2026-09-20\n"
+  );
+}
+
+function clasificarVencimiento(diasRestantes) {
+  if (diasRestantes < 0) return { etiqueta: "Vencido", clase: "no" };
+  if (diasRestantes <= 5) return { etiqueta: `Urgente (${diasRestantes} d.)`, clase: "no" };
+  if (diasRestantes <= 15) return { etiqueta: `Próximo (${diasRestantes} d.)`, clase: "ok" };
+  return { etiqueta: `Al día (${diasRestantes} d.)`, clase: "ok" };
+}
+
+document.getElementById("archivo-vencimientos").addEventListener("change", function (e) {
+  const archivo = e.target.files[0];
+  const cierreNomina = document.getElementById("fecha_cierre_nomina").value;
+  if (!archivo) return;
+  Papa.parse(archivo, {
+    header: true, skipEmptyLines: true,
+    complete: function (resultados) {
+      const hoy = new Date();
+      let html = "<table><tr><th>Nombre</th><th>Trámite</th><th>Fecha límite</th><th>Estado</th></tr>";
+      resultados.data.forEach((fila) => {
+        const limites = [fila.fecha_limite, cierreNomina].filter(Boolean).map((f) => new Date(f));
+        const fechaEfectiva = limites.length ? new Date(Math.min(...limites)) : null;
+        const dias = fechaEfectiva ? diffDias(hoy, fechaEfectiva) : null;
+        const est = dias !== null ? clasificarVencimiento(dias) : { etiqueta: "Sin fecha", clase: "no" };
+        html += `<tr><td>${fila.nombre || "—"}</td><td>${fila.tipo_tramite || "—"}</td>
+          <td>${fila.fecha_limite || "—"}</td><td><span class="pill ${est.clase}">${est.etiqueta}</span></td></tr>`;
+      });
+      html += "</table>";
+      document.getElementById("resultado-vencimientos").innerHTML = html;
+    },
+  });
+});
+
+// --- Conciliación SARA vs RUAF/ADRES ---
+function descargarEjemploSara() {
+  descargarCsv("ejemplo_export_sara.csv",
+    "cedula,nombre,entidad_eps,entidad_afp\n" +
+    "52784910,Ana Torres,Sura EPS,Porvenir\n" +
+    "10203040,Carlos Ruiz,Nueva EPS,Protección\n" +
+    "44556677,Marta Gómez,Sanitas,Colfondos\n"
+  );
+}
+function descargarEjemploRuaf() {
+  descargarCsv("ejemplo_export_ruaf.csv",
+    "cedula,nombre,entidad_eps,entidad_afp\n" +
+    "52784910,Ana Torres,Sura EPS,Porvenir\n" +
+    "10203040,Carlos Ruiz,Compensar EPS,Protección\n" +
+    "99887766,Persona Sin Registro SARA,Coosalud,Colpensiones\n"
+  );
+}
+
+function leerCsv(archivo) {
+  return new Promise((resolve) => {
+    Papa.parse(archivo, { header: true, skipEmptyLines: true, complete: (r) => resolve(r.data) });
+  });
+}
+
+async function conciliar() {
+  const archivoSara = document.getElementById("archivo-sara").files[0];
+  const archivoRuaf = document.getElementById("archivo-ruaf").files[0];
+  if (!archivoSara || !archivoRuaf) {
+    document.getElementById("resultado-conciliacion").innerHTML = '<div class="resultado no">Carga ambos archivos antes de conciliar.</div>';
+    return;
+  }
+  const [sara, ruaf] = await Promise.all([leerCsv(archivoSara), leerCsv(archivoRuaf)]);
+  const ruafPorCedula = Object.fromEntries(ruaf.map((f) => [String(f.cedula).trim(), f]));
+  const cedulasVistas = new Set();
+
+  let html = "<table><tr><th>Cédula</th><th>Nombre</th><th>EPS (SARA)</th><th>EPS (RUAF)</th><th>AFP (SARA)</th><th>AFP (RUAF)</th><th>Estado</th></tr>";
+  sara.forEach((fila) => {
+    const ced = String(fila.cedula).trim();
+    cedulasVistas.add(ced);
+    const enRuaf = ruafPorCedula[ced];
+    const coincideEps = enRuaf && enRuaf.entidad_eps === fila.entidad_eps;
+    const coincideAfp = enRuaf && enRuaf.entidad_afp === fila.entidad_afp;
+    const okTotal = enRuaf && coincideEps && coincideAfp;
+    html += `<tr><td>${ced}</td><td>${fila.nombre || "—"}</td>
+      <td>${fila.entidad_eps || "—"}</td><td>${enRuaf ? (enRuaf.entidad_eps || "—") : "<i>no reportado</i>"}</td>
+      <td>${fila.entidad_afp || "—"}</td><td>${enRuaf ? (enRuaf.entidad_afp || "—") : "<i>no reportado</i>"}</td>
+      <td><span class="pill ${okTotal ? "ok" : "no"}">${!enRuaf ? "No está en RUAF" : okTotal ? "Coincide" : "Inconsistencia"}</span></td></tr>`;
+  });
+  ruaf.forEach((fila) => {
+    const ced = String(fila.cedula).trim();
+    if (!cedulasVistas.has(ced)) {
+      html += `<tr><td>${ced}</td><td>${fila.nombre || "—"}</td><td colspan="4"><i>Reportado en RUAF pero no está en SARA</i></td>
+        <td><span class="pill no">Falta en SARA</span></td></tr>`;
+    }
+  });
+  html += "</table>";
+  document.getElementById("resultado-conciliacion").innerHTML = html;
+}
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+  Papa.parse(archivo, {
+    header: true,
+    skipEmptyLines: true,
+    complete: function (resultados) {
+      const filas = resultados.data.map((fila) => {
+        const r = evaluarTramite(fila);
+        return { ...fila, ...r };
+      });
+      let html = "<table><tr><th>Nombre</th><th>Trámite</th><th>Resultado</th><th>Detalle</th></tr>";
+      filas.forEach((f) => {
+        html += `<tr><td>${f.nombre || "—"}</td><td>${f.tipo_tramite || "—"}</td>
+          <td><span class="pill ${f.cumple ? "ok" : "no"}">${f.cumple ? "Cumple" : "No cumple"}</span></td>
+          <td>${f.motivos.join("<br>")}</td></tr>`;
+      });
+      html += "</table>";
+      document.getElementById("resultado-csv").innerHTML = html;
+    },
+  });
+});
+</script>
+</body>
+</html>
