@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Salarial - Automatización de formatos UNAL</title>
+<title>DNPAA - Automatización de formatos UNAL</title>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
   :root { --azul: #1a3a6b; --gris-texto: #444; --gris-borde: #d0d0d0; --fondo: #f5f6f8; --ok: #1e7d4a; --error: #b3261e; --text-muted:#6b7280; }
@@ -40,7 +40,7 @@
 <body>
 <div class="contenedor">
   <a class="volver" href="index.html">&larr; Volver</a>
-  <h1>Salarial — Afiliaciones y traslados</h1>
+  <h1>DNPAA — Afiliaciones y traslados</h1>
   <p class="subtitulo">Procedimiento U.PR.08.007.029 · Herramientas de apoyo para la División Nacional Salarial y Prestacional</p>
 
   <div class="tarjeta">
@@ -109,9 +109,6 @@
     <label style="margin-top:1rem">Archivo CSV de trámites en curso (columnas: nombre, tipo_tramite, fecha_limite)</label>
     <div class="zona-csv">
       <input type="file" id="archivo-vencimientos" accept=".csv">
-      <div style="margin-top:0.4rem">
-        <a href="#" onclick="descargarEjemploVencimientos();return false;" style="color:var(--azul)">Descargar CSV de ejemplo</a>
-      </div>
     </div>
     <div id="resultado-vencimientos"></div>
   </div>
@@ -124,12 +121,10 @@
       <div>
         <label>Export de SARA (.csv)</label>
         <input type="file" id="archivo-sara" accept=".csv">
-        <a href="#" onclick="descargarEjemploSara();return false;" style="font-size:0.78rem;color:var(--azul)">Descargar CSV de ejemplo</a>
       </div>
       <div>
         <label>Export de RUAF/ADRES (.csv)</label>
         <input type="file" id="archivo-ruaf" accept=".csv">
-        <a href="#" onclick="descargarEjemploRuaf();return false;" style="font-size:0.78rem;color:var(--azul)">Descargar CSV de ejemplo</a>
       </div>
     </div>
     <button onclick="conciliar()">Conciliar</button>
@@ -209,24 +204,6 @@ function verificarUno() {
 }
 
 // --- Panel de vencimientos ---
-function descargarCsv(nombreArchivo, contenido) {
-  const blob = new Blob([contenido], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = nombreArchivo; a.click();
-  URL.revokeObjectURL(url);
-}
-
-function descargarEjemploVencimientos() {
-  descargarCsv("ejemplo_vencimientos.csv",
-    "nombre,tipo_tramite,fecha_limite\n" +
-    "Ana Torres,Afiliación ARL,2026-08-25\n" +
-    "Carlos Ruiz,Traslado EPS,2026-09-05\n" +
-    "Marta Gómez,Registro SARA,2026-08-18\n" +
-    "Pedro León,Radicación novedad,2026-09-20\n"
-  );
-}
-
 function clasificarVencimiento(diasRestantes) {
   if (diasRestantes < 0) return { etiqueta: "Vencido", clase: "no" };
   if (diasRestantes <= 5) return { etiqueta: `Urgente (${diasRestantes} d.)`, clase: "no" };
@@ -258,23 +235,6 @@ document.getElementById("archivo-vencimientos").addEventListener("change", funct
 });
 
 // --- Conciliación SARA vs RUAF/ADRES ---
-function descargarEjemploSara() {
-  descargarCsv("ejemplo_export_sara.csv",
-    "cedula,nombre,entidad_eps,entidad_afp\n" +
-    "52784910,Ana Torres,Sura EPS,Porvenir\n" +
-    "10203040,Carlos Ruiz,Nueva EPS,Protección\n" +
-    "44556677,Marta Gómez,Sanitas,Colfondos\n"
-  );
-}
-function descargarEjemploRuaf() {
-  descargarCsv("ejemplo_export_ruaf.csv",
-    "cedula,nombre,entidad_eps,entidad_afp\n" +
-    "52784910,Ana Torres,Sura EPS,Porvenir\n" +
-    "10203040,Carlos Ruiz,Compensar EPS,Protección\n" +
-    "99887766,Persona Sin Registro SARA,Coosalud,Colpensiones\n"
-  );
-}
-
 function leerCsv(archivo) {
   return new Promise((resolve) => {
     Papa.parse(archivo, { header: true, skipEmptyLines: true, complete: (r) => resolve(r.data) });
@@ -315,6 +275,8 @@ async function conciliar() {
   html += "</table>";
   document.getElementById("resultado-conciliacion").innerHTML = html;
 }
+
+document.getElementById("archivo-csv").addEventListener("change", function (e) {
   const archivo = e.target.files[0];
   if (!archivo) return;
   Papa.parse(archivo, {
